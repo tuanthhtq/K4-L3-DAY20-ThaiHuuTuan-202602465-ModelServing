@@ -1,9 +1,9 @@
-# 01 - Tinh chỉnh số lượng thread
+# 01 - Tune: thread-count sweep
 
-Model `gemma-4-E2B-it-UD-Q4_K_XL.gguf` · máy `Windows-AMD64` · llama.cpp `b10488`
-CPU: **8 core vật lý · 16 core logic** · `ngl=99` · metric `tg128`
+Model `gemma-4-E2B-it-UD-Q4_K_XL.gguf` · host `Windows-AMD64` · llama.cpp `b10488`
+CPU: **8 physical · 16 logical** cores · `ngl=99` · metric `tg128`
 
-| Số thread (-t) | tg128 (tok/s) | So với tốt nhất |
+| threads (-t) | tg128 (tok/s) | vs best |
 |:--|--:|--:|
 | 1 | 37.5 | 99% |
 | 4 | 37.8 | 100% |
@@ -11,26 +11,26 @@ CPU: **8 core vật lý · 16 core logic** · `ngl=99` · metric `tg128`
 | 16 | 37.5 | 99% |
 | 32 | 37.6 | 99% |
 
-**Tốt nhất**: `-t 8` đạt 37.9 tok/s
-**Chậm nhất trong các cấu hình đã thử**: `-t 16` đạt 37.5 tok/s (chênh lệch 1.01 lần)
-**So với cấu hình mặc định theo số core vật lý** (`-t 8`, 37.9 tok/s): 1.00 lần
+**Best**: `-t 8` at 37.9 tok/s
+**Slowest tested**: `-t 16` at 37.5 tok/s (1.01x spread)
+**Against the physical-core default** (`-t 8`, 37.9 tok/s): 1.00x
 
-Dùng cấu hình sau cho lần chạy:
+Use this in your run:
 
 ```powershell
 $env:LAB_N_THREADS = '8'
 .\lab.ps1 bench
 ```
 
-## Giải thích
+## Your explanation
 
-Đỉnh đo được ở `-t 8`, đúng bằng số core vật lý, nhưng đường cong gần như phẳng:
-37.5, 37.8, 37.9, 37.5 và 37.6 tok/s cho 1, 4, 8, 16 và 32 thread. Vì vậy
-không có một knee rõ ràng; chênh lệch giữa cấu hình tốt nhất và chậm nhất chỉ khoảng
-1.01 lần.
+The peak is at `-t 8`, matching the physical-core count, but the curve is nearly flat:
+37.5, 37.8, 37.9, 37.5 and 37.6 tok/s for 1, 4, 8, 16 and 32 threads. There is
+therefore no sharp knee; the spread between the best and slowest configurations is only
+about 1.01x.
 
-Từ 16 thread trở lên, thêm thread không làm tăng throughput vì decode bị giới hạn bởi
-băng thông bộ nhớ. Các thread vượt số core vật lý phải chia sẻ cùng tài nguyên bộ nhớ
-và tạo thêm chi phí lập lịch, nên kết quả giảm nhẹ. Trên máy này, `-t 8` là lựa chọn
-hợp lý: đạt kết quả cao nhất và tránh oversubscription, dù lợi ích so với 4 thread
-chỉ khoảng 0.3%.
+From 16 threads onward, adding threads does not increase throughput because decode is
+memory-bandwidth-bound. Threads beyond the physical-core count share the same memory
+resources and add scheduling overhead, so throughput drops slightly. On this machine,
+`-t 8` is the sensible choice: it is the best result and avoids oversubscription, even
+though the gain over 4 threads is only about 0.3%.

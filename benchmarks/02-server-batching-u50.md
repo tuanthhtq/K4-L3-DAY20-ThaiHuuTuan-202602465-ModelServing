@@ -17,7 +17,12 @@ they arrived too far apart. A peak approaching `--parallel` means the scheduler 
 genuinely packing concurrent requests into shared decode steps.
 `requests_deferred` went above zero: more requests arrived than there were slots, so some waited. That wait is the queue time in your P95.
 
-## Your observation (required -- replace this line)
+## Your observation
 
-_What was the peak batch width, and does it match the effective concurrency in
-`02-server-results.md`? If the two disagree, which do you trust and why?_
+The peak `n_busy_slots_per_decode` was 3.98 of 4 slots, so continuous batching was
+operating at almost full slot capacity. This does not conflict with the effective
+concurrency of 32.6 in `02-server-results.md`: the server gauge measures requests
+actively occupying decode slots, while Little's Law also includes requests waiting in
+the queue. I trust the server gauge as direct evidence of batch width and the effective
+concurrency value as evidence of total system occupancy. The 46 deferred requests
+confirm that demand exceeded the four available slots.
