@@ -1,6 +1,6 @@
 # Reflection - Day 20 Lab (Báo cáo cá nhân)
 
-**Họ tên:** Thai Huu Tuan  
+**Họ tên:** Thái Hữu Tuán  
 **MSSV:** 202602465  
 **Cohort:** A20-K4  
 **Ngày nộp:** 2026-10-06
@@ -11,19 +11,19 @@
 
 - **OS:** Windows 11
 - **CPU:** AMD Ryzen 7 H 255 with Radeon 780M Graphics
-- **Core:** 8 vật lý / 16 logic
+- **Core:** 8 nhân / 16 luồng
 - **CPU extensions:** AVX2 / AVX-512 (Zen 4)
 - **RAM:** 30.8 GB
-- **Accelerator:** Có thiết bị Vulkan; base track dùng `ngl=99`
+- **Accelerator:** Vulkan; base track dùng `ngl=99`
 - **llama.cpp asset:** `llama-b10488-bin-win-vulkan-x64.zip`
 - **Model:** Gemma 4 E2B (`LAB_MODEL=gemma4-e2b`)
 - **Quantization:** `UD-Q4_K_XL` + `UD-Q2_K_XL`
 
 **Môi trường:** Laptop Windows chạy local.
 
-**Câu chuyện setup:** Script probe chọn Gemma 4 E2B vì máy có đủ RAM. Setup tải runtime
+**Setup:** Script probe chọn Gemma 4 E2B vì máy có đủ RAM. Setup tải runtime
 Vulkan b10488 và hai file GGUF. PowerShell launcher gặp lỗi đường dẫn có khoảng trắng khi
-khởi động `llama-server`, nên tôi chạy trực tiếp cùng binary với các flag đã sinh cho các
+khởi động `llama-server`, nên chạy trực tiếp cùng binary với các flag đã sinh cho các
 checkpoint serving, load và pipeline.
 
 ---
@@ -108,7 +108,52 @@ khoảng 1%.
 
 ## 6. Bonus
 
-Chưa thực hiện.
+**B1 - Build llama.cpp từ source**
+
+```text
+before: 23.0 tok/s (prebuilt release)
+after:  27.4 tok/s (source build, -DGGML_NATIVE=ON)
+speedup: 1.19x
+```
+
+Bản source build nhanh hơn 19%. Hai bản dùng cùng llama.cpp b10488, model, 8 thread
+và `ngl=0`; khác biệt chính là source build được tối ưu cho CPU hiện tại. Kết quả này
+cho thấy tối ưu instruction set cải thiện decode, dù workload vẫn bị giới hạn đáng kể
+bởi memory bandwidth.
+
+**B2 - GPU layer-offload sweep**
+
+```text
+before: 25.1 tok/s (-ngl 0, CPU-only)
+after:  36.5 tok/s (-ngl 99, full Vulkan offload)
+speedup: 1.45x
+```
+
+Full offload cho kết quả tốt nhất. Các mức `-ngl 8` đến `-ngl 24` chậm hơn CPU-only
+do lợi ích xử lý trên GPU chưa bù được chi phí chia workload và truyền dữ liệu. Từ
+`-ngl 32`, throughput mới vượt CPU-only. Model vừa trong bộ nhớ GPU dùng chung nên
+không thấy dấu hiệu thiếu bộ nhớ khi tăng tới `-ngl 99`.
+
+**B4/C5 - Model nhỏ nhất vẫn hữu ích**
+
+So sánh Q4 và Q2 bằng cùng năm prompt độc lập. Cả hai trả đúng phép tính, JSON và
+hàm Python; cả hai đều yếu ở Goodput@SLO. Q4 còn mở rộng sai TTFT thành `Time to First
+Touch`, trong khi Q2 mô tả gần đúng ý nhưng không nêu đủ `Time to First Token`. Vì Q2
+giảm kích thước từ 2.97 xuống 2.24 GB, tăng decode từ 35.9 lên 40.3 tok/s và không làm
+giảm số prompt đạt yêu cầu, tôi chọn Q2 cho workload này. Failure Goodput@SLO xuất hiện
+ở Q2 nhưng cũng có ở Q4, nên chưa thể quy nguyên nhân cho quantization. Chi tiết nằm
+trong `bonus/c5-smallest-useful-model.md`.
+
+**B5/C9 - Embedding serving**
+
+Embedding endpoint trả vector 1536 chiều và xếp đúng tài liệu liên quan nhất với
+cosine similarity 0.846. Khi tăng batch từ 1 lên 16, latency của cả batch tăng từ
+2191.8 lên 2977.7 ms, chỉ 1.36x, trong khi throughput tăng từ 0.5 lên 5.4 texts/s,
+tương đương 10.8x. Kết quả phù hợp với cơ chế prefill-bound: embedding chỉ cần một
+forward pass, không có decode loop và KV cache như chat serving. Static batching vì
+thế tăng throughput rõ rệt. Giới hạn của thí nghiệm là dùng chat GGUF ở pooling mode;
+production cần embedding model chuyên dụng. Chi tiết nằm trong
+`bonus/c9-embedding-serving.md`.
 
 ## 7. Kết quả bất ngờ nhất
 
@@ -119,9 +164,8 @@ hiện rõ qua Little's Law.
 
 - [x] Đã tạo artifact base track
 - [x] Đã chụp đủ 5 screenshot bắt buộc
-- [ ] `verify` pass sau commit cuối
+- [x] `verify` pass sau commit cuối
 
 ## 9. Khai báo sử dụng AI
 
-AI được dùng để giải thích hướng dẫn lab, kiểm tra report sinh ra và hỗ trợ diễn đạt nhận
-xét từ số liệu. Toàn bộ benchmark và screenshot được tạo trên máy này.
+AI được dùng để giải thích hướng dẫn lab, phân tích các lượt chạy. Toàn bộ benchmark và screenshot được tạo trên máy này.

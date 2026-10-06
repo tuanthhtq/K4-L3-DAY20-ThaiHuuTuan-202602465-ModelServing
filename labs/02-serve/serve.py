@@ -66,6 +66,9 @@ def main() -> int:
         print(f"  endpoints: http://localhost:{port}/v1/embeddings")
     print(f"\n  {' '.join(cmd)}\n")
 
+    if os.name == "nt":
+        return subprocess.run(cmd, check=False).returncode
+
     try:
         os.execv(cmd[0], cmd)          # hand the terminal over; Ctrl-C stops the server
     except OSError:
